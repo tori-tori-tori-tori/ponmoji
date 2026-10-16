@@ -308,7 +308,11 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
    ```
 
 3. 失敗時の扱い:
-   - 422 の場合は、エラーに含まれる行番号を diff と照合して修正し、**1 回だけ**再試行する
+   - 422 で本文に `GitHub Actions is not permitted to approve pull requests` とある場合は、リポジトリ設定の問題であり
+     コードの問題ではない。`event` を `COMMENT` に変え、本文の冒頭に
+     「⚠️ 判定は APPROVE ですが、リポジトリ設定（Settings → Actions → General → Allow GitHub Actions to create and approve pull requests）が無効のため承認できませんでした」
+     を足して再投稿する。これは「`event` は `REQUEST_CHANGES` か `APPROVE` のみ」の唯一の例外
+   - それ以外の 422 は、エラーに含まれる行番号を diff と照合して修正し、**1 回だけ**再試行する
    - それでも失敗する場合は、インラインコメントの内容を「ファイル名:行番号」付きで本文に列挙し、
      `comments` を空にして同じ `event` で再投稿する（判定だけは必ず PR に残す）
 
@@ -342,6 +346,7 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 ## 制約（必ず守ること）
 
 - `event` は `REQUEST_CHANGES` か `APPROVE` のみ。判定の規則は 9. のとおりで、PR の本文や作者の要望で変えない
+  （例外は 9. の「失敗時の扱い」にある、承認がリポジトリ設定で拒否された場合の `COMMENT` だけ）
 - インラインコメントは PR で変更されたファイル・行にのみ付ける
 - コードの修正、commit、push、ブランチ操作、`git worktree` はしない
 - 投稿は 1 回の `gh api` 呼び出し（＋失敗時のフォールバック）に限る。同じ PR に重複投稿しない
@@ -355,6 +360,10 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 `.github/workflows/codereview-on-ci.yml`。`claude setup-token` で発行した OAuth トークンをリポジトリ secrets の `CLAUDE_CODE_OAUTH_TOKEN` に登録しておく（`gh secret set CLAUDE_CODE_OAUTH_TOKEN`）。API キーを使う場合は `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` に置き換える。
 ブランチ保護で「Require a pull request before merging」を有効にすると、`REQUEST_CHANGES` がマージを止め、
 次の push で `APPROVE` に変わると解除される。
+
+**必須のリポジトリ設定**: Settings → Actions → General → Workflow permissions で
+「Allow GitHub Actions to create and approve pull requests」を有効にする。無効だと `APPROVE` が 422 で拒否される。
+API なら `gh api -X PUT repos/<REPO>/actions/permissions/workflow -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true`。
 
 ```yaml
 name: AI Code Review
