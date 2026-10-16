@@ -29,15 +29,17 @@ jobs:
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # `claude setup-token` で発行（サブスクリプション）
           github_token: ${{ secrets.GITHUB_TOKEN }}   # Claude GitHub App 未インストールでも動くように
-          prompt: "/codereview-on-ci"
+          # PR 情報は環境変数ではなく引数で渡す。Bash の権限チェックは $VAR を含むコマンドを拒否するため、
+          # スキル側はこの値をリテラルとしてコマンドに埋め込む
+          prompt: >-
+            /codereview-on-ci
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            REPO=${{ github.repository }}
+            BASE_BRANCH=${{ github.event.pull_request.base.ref }}
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
           claude_args: |
             --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
             --max-turns 60

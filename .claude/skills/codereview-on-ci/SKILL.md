@@ -1,6 +1,7 @@
 ---
 name: codereview-on-ci
 description: GitHub Actions（anthropics/claude-code-action）上で PR の差分をレビューし、🚨 Must / 💭 Nit に分けたインラインコメント付き review を gh api で投稿する。Must が残っていれば Request changes、0 件なら Approve。CI からの自動実行専用。
+argument-hint: "PR_NUMBER=<n> REPO=<owner/repo> BASE_BRANCH=<branch> HEAD_SHA=<sha>"
 ---
 # Code Review Skill（CI 実行用）
 
@@ -31,18 +32,28 @@ GitHub Actions 上で PR の変更内容を分析し、関連するレビュー�
   `git worktree` やブランチ切り替えは不要であり、行ってはならない。
 - **依存パッケージは入っていない**（`node_modules` 等が無い）。ライブラリの挙動（型・戻り値・例外）に依存する主張は、
   確かめられなかったと書いて 💭 Nit にする。
-- **PR 情報は環境変数で渡される。**
+- **PR 情報はスキルの引数で渡される。** `$ARGUMENTS` は次の形。
 
-  | 変数 | 内容 |
-  |------|------|
-  | `PR_NUMBER` | PR 番号 |
-  | `REPO` | `owner/repo` 形式 |
-  | `BASE_BRANCH` | マージ先ブランチ名 |
-  | `HEAD_BRANCH` | PR のブランチ名 |
-  | `HEAD_SHA` | PR の先頭 commit の SHA |
+  ```
+  PR_NUMBER=<PR 番号> REPO=<owner/repo> BASE_BRANCH=<マージ先ブランチ> HEAD_SHA=<PR の先頭 commit の SHA>
+  ```
 
+  以降の手順では `<PR_NUMBER>` などと書いた箇所に、**この引数の値をそのまま文字として埋め込む**。
 - **`gh` は `GH_TOKEN` で認証済み。** 投稿は `github-actions[bot]` 名義になる。前回の投稿もこの名義で探す。
 - **コードは修正しない。commit / push もしない。** レビューコメントを生成・投稿するだけのプロセスである。
+
+### シェルコマンドの書き方（権限チェックを通すために必須）
+
+CI では許可されたコマンドの接頭辞（`gh pr view` など）だけが実行できる。
+接頭辞で判定できない書き方は**実行前に拒否される**ので、次を守る。
+
+- **1 回の Bash 呼び出しに 1 コマンド。** `cd`・`;`・`&&`・`||`・`|`・サブシェル `$(...)` を使わない
+- **シェル変数（`$PR_NUMBER`・`${REPO%/*}`・`$RUNNER_TEMP` など）を使わない。** 値はすべて引数から取ってリテラルで書く
+- GraphQL のクエリにも `$owner` のような変数を使わず、値を直接書く
+- 出力の絞り込みは `gh` の `--jq` / `--json` で行い、`jq`・`head`・`grep` へのパイプは使わない
+- カレントディレクトリはリポジトリのルート。`cd` せずに相対パスで扱う
+- 使えるのは `gh pr view` / `gh pr diff` / `gh api` / `git diff` / `git log` / `git blame` / `git grep` / `git show` と、Read / Grep / Glob / Write。
+  それ以外（`gh pr list`・`env`・`ls`・`cat` など）は使わない
 
 ---
 
@@ -77,35 +88,26 @@ GitHub Actions 上で PR の変更内容を分析し、関連するレビュー�
 ### 1. PR 情報の確認と、意図をつかむ
 
 ```bash
-gh pr view "$PR_NUMBER" --repo "$REPO" --json number,title,body,baseRefName,headRefName,isDraft,author,commits
+gh pr view <PR_NUMBER> --repo <REPO> --json number,title,body,baseRefName,headRefName,isDraft,author,commits
 ```
 
 **タイトル、説明文、対象ブランチ名、commit メッセージ**を読み、**作者が何をしようとしたか**を 1 文にする。
-環境変数が欠けている場合もこの出力で補う。
+引数が欠けている場合もこの出力で補う。
 
 ### 2. 前回までの指摘の取得
 
 同じ PR への前回の投稿（`github-actions[bot]` 名義）を集める。初回なら空でよい。
 
-```bash
-# 前回までの review（state と、レビューした時点の commit）
-gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
-  --jq '.[] | select(.user.login=="github-actions[bot]") | {id, state, commit_id, submitted_at}'
+前回までの review（state と、レビューした時点の commit）:
 
-# 前回までのインラインコメントと、スレッドの resolve 状態
-gh api graphql -F owner="${REPO%/*}" -F name="${REPO#*/}" -F n="$PR_NUMBER" -f query='
-query($owner:String!, $name:String!, $n:Int!) {
-  repository(owner:$owner, name:$name) {
-    pullRequest(number:$n) {
-      reviewThreads(first:100) {
-        nodes {
-          isResolved isOutdated path line
-          comments(first:3) { nodes { author { login } body } }
-        }
-      }
-    }
-  }
-}'
+```bash
+gh api repos/<REPO>/pulls/<PR_NUMBER>/reviews --paginate --jq '.[] | select(.user.login=="github-actions[bot]") | {id, state, commit_id, submitted_at}'
+```
+
+前回までのインラインコメントと、スレッドの resolve 状態（`<OWNER>` / `<NAME>` は `<REPO>` を `/` で分けたもの。変数を使わず値を直接書く）:
+
+```bash
+gh api graphql -f query='{ repository(owner:"<OWNER>", name:"<NAME>") { pullRequest(number:<PR_NUMBER>) { reviewThreads(first:100) { nodes { isResolved isOutdated path line comments(first:3) { nodes { author { login } body } } } } } } }'
 ```
 
 ここから次を整理しておく:
@@ -116,8 +118,11 @@ query($owner:String!, $name:String!, $n:Int!) {
 ### 3. 差分の取得
 
 ```bash
-gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only   # 変更ファイル一覧（PR 全体）
-gh pr diff "$PR_NUMBER" --repo "$REPO"               # 差分本体（PR 全体）
+gh pr diff <PR_NUMBER> --repo <REPO> --name-only
+```
+
+```bash
+gh pr diff <PR_NUMBER> --repo <REPO>
 ```
 
 `gh pr diff` の出力は GitHub 上の diff と一致するため、**インラインコメントの行番号はこの差分を基準に決める**。
@@ -125,11 +130,16 @@ gh pr diff "$PR_NUMBER" --repo "$REPO"               # 差分本体（PR 全体�
 **2 回目以降（前回レビューした commit がある）は、新しい指摘は前回から足した変更だけから出す。**
 
 ```bash
-git diff <前回の commit_id> "$HEAD_SHA"
-# 前回の commit が履歴に無い（force push 等）場合:
-gh api "repos/$REPO/compare/<前回の commit_id>...$HEAD_SHA" --jq '.files[] | {filename, patch}'
-# それも取れなければ PR 全体の差分を対象にし、その旨を review 本文に書く
+git diff <前回の commit_id> <HEAD_SHA>
 ```
+
+前回の commit が履歴に無い（force push 等）場合:
+
+```bash
+gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | {filename, patch}'
+```
+
+それも取れなければ PR 全体の差分を対象にし、その旨を review 本文に書く。
 
 前回の後にベースを取り込んでいても、ベース側の変更はこの範囲に入らない。
 
@@ -253,7 +263,7 @@ gh api "repos/$REPO/compare/<前回の commit_id>...$HEAD_SHA" --jq '.files[] | 
 
   **問題**: <この入力・操作 → このコードの流れ → この実害>
   **直し方**: <具体的な修正>
-  <必要なら参考リンク（リポジトリ内は https://github.com/$REPO/blob/$HEAD_SHA/<path>#L<n> 形式の permanent link）>
+  <必要なら参考リンク（リポジトリ内は https://github.com/<REPO>/blob/<HEAD_SHA>/<path>#L<n> 形式の permanent link）>
   ```
 
   Nit は 1 行目を `[AI] 💭 Nit: <題>` にする。1 行目の印は機械的に読むので崩さない
@@ -274,7 +284,7 @@ gh api "repos/$REPO/compare/<前回の commit_id>...$HEAD_SHA" --jq '.files[] | 
 
 **投稿（2 サイクル完了後に 1 回でまとめて行う。途中で個別に投稿しない）:**
 
-1. Write ツールで `$RUNNER_TEMP/review.json` を作成する。
+1. Write ツールでリポジトリ直下に `.codereview-on-ci/review.json` を作成する（commit はしない）。
 
    ```json
    {
@@ -292,7 +302,7 @@ gh api "repos/$REPO/compare/<前回の commit_id>...$HEAD_SHA" --jq '.files[] | 
 2. 投稿する。
 
    ```bash
-   gh api -X POST "repos/$REPO/pulls/$PR_NUMBER/reviews" --input "$RUNNER_TEMP/review.json"
+   gh api -X POST repos/<REPO>/pulls/<PR_NUMBER>/reviews --input .codereview-on-ci/review.json
    ```
 
 3. 失敗時の扱い:
@@ -334,6 +344,7 @@ gh api "repos/$REPO/compare/<前回の commit_id>...$HEAD_SHA" --jq '.files[] | 
 - コードの修正、commit、push、ブランチ操作、`git worktree` はしない
 - 投稿は 1 回の `gh api` 呼び出し（＋失敗時のフォールバック）に限る。同じ PR に重複投稿しない
 - ユーザーへの質問や確認待ちをしない
+- 「シェルコマンドの書き方」を守る。コマンドが拒否されたら、変数・複合・パイプを取り除いて書き直す。許可外のコマンドで代替しない
 
 ---
 
@@ -375,15 +386,17 @@ jobs:
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # `claude setup-token` で発行（サブスクリプション）
           github_token: ${{ secrets.GITHUB_TOKEN }}   # Claude GitHub App 未インストールでも動くように
-          prompt: "/codereview-on-ci"
+          # PR 情報は環境変数ではなく引数で渡す。Bash の権限チェックは $VAR を含むコマンドを拒否するため、
+          # スキル側はこの値をリテラルとしてコマンドに埋め込む
+          prompt: >-
+            /codereview-on-ci
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            REPO=${{ github.repository }}
+            BASE_BRANCH=${{ github.event.pull_request.base.ref }}
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
           claude_args: |
             --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
             --max-turns 60
