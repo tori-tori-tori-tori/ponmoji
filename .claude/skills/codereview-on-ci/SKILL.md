@@ -371,7 +371,8 @@ jobs:
         with:
           fetch-depth: 0   # git log / blame / 前回 commit との diff を使えるように履歴ごと取得
 
-      - uses: anthropics/claude-code-action@v1
+      - id: claude
+        uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -386,4 +387,12 @@ jobs:
           claude_args: |
             --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
             --max-turns 60
+
+      # Claude の実行ログ（ツール呼び出し・権限拒否・最終出力）を artifact に残す。失敗の切り分け用
+      - if: always() && steps.claude.outputs.execution_file != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-execution-log-pr${{ github.event.pull_request.number }}
+          path: ${{ steps.claude.outputs.execution_file }}
+          retention-days: 7
 ```
