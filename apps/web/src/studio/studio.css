@@ -1,0 +1,217 @@
+.studio {
+  --gap: 16px;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Noto Sans JP', system-ui, sans-serif;
+  padding: var(--gap);
+  box-sizing: border-box;
+}
+
+.studio-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  margin-bottom: var(--gap);
+}
+
+.studio-header h1 {
+  font-family: 'Zen Maru Gothic', system-ui, sans-serif;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.studio-theme {
+  display: flex;
+  gap: 4px;
+}
+
+.studio-theme button {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.studio-theme button[aria-pressed='true'] {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.studio-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+}
+
+@media (min-width: 800px) {
+  .studio-body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+.studio-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.studio-edit-canvas {
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 15%, transparent);
+  image-rendering: auto;
+}
+
+.studio-fit {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+.studio-chat {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 384px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.studio-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--brand);
+  flex: none;
+}
+
+.studio-chat-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.studio-chat-meta strong {
+  color: var(--ink);
+}
+
+.studio-chat-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-chat-line canvas {
+  vertical-align: middle;
+}
+
+.studio-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.studio-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.studio-field > span,
+.studio-field > legend {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.studio-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  background: var(--surface);
+  color: var(--ink);
+  resize: vertical;
+}
+
+.studio-field small {
+  color: var(--muted);
+}
+
+.studio-font {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.studio-font small {
+  font-family: system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+.studio-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.studio-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.studio-swatch[aria-pressed='true'] {
+  border-color: var(--brand);
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--brand);
+}
+
+.studio-swatch-transparent {
+  background:
+    linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%),
+    linear-gradient(45deg, #e6e6e6 25%, #fff 25%, #fff 75%, #e6e6e6 75%);
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    4px 4px;
+}
+
+.studio-warn {
+  color: #e65100;
+}
+
+.studio input[type='color'] {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
