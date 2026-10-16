@@ -40,7 +40,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Integration テスト(Vitest Browser Mode)用の Chromium
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --filter @ponmoji/web exec playwright install --with-deps chromium
       - run: pnpm exec vp run -r test
 
   build:
