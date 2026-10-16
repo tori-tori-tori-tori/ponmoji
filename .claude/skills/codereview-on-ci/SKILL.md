@@ -339,7 +339,7 @@ gh api "repos/$REPO/compare/<前回の commit_id>...$HEAD_SHA" --jq '.files[] | 
 
 ## ワークフロー設定（参考）
 
-`.github/workflows/codereview-on-ci.yml`。`ANTHROPIC_API_KEY` をリポジトリ secrets に登録しておく（`gh secret set ANTHROPIC_API_KEY`）。
+`.github/workflows/codereview-on-ci.yml`。`claude setup-token` で発行した OAuth トークンをリポジトリ secrets の `CLAUDE_CODE_OAUTH_TOKEN` に登録しておく（`gh secret set CLAUDE_CODE_OAUTH_TOKEN`）。API キーを使う場合は `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` に置き換える。
 ブランチ保護で「Require a pull request before merging」を有効にすると、`REQUEST_CHANGES` がマージを止め、
 次の push で `APPROVE` に変わると解除される。
 
@@ -380,7 +380,7 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # `claude setup-token` で発行（サブスクリプション）
           github_token: ${{ secrets.GITHUB_TOKEN }}   # Claude GitHub App 未インストールでも動くように
           prompt: "/codereview-on-ci"
           claude_args: |
