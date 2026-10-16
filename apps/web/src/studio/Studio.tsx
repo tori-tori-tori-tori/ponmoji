@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { contrastRatio, MIN_CONTRAST } from './color'
 import { clampText, initialDraft, MAX_CHARS_PER_LINE, MAX_LINES, type StampDraft } from './draft'
 import { type FitResult, MIN_FONT_SIZE } from './fit'
@@ -18,12 +18,18 @@ export function Studio() {
   const theme = SERVICE_THEMES[service]
   const palette = theme[appearance]
   const update = (patch: Partial<StampDraft>) => setDraft((d) => ({ ...d, ...patch }))
-  const onFit = useCallback((r: FitResult) => setFit(r), [])
+  // 内容が同じなら state を更新しない。effect → onFit → setFit → 再レンダーの循環を止める
+  const onFit = useCallback(
+    (r: FitResult) => setFit((prev) => (prev && sameFit(prev, r) ? prev : r)),
+    [],
+  )
 
-  // プレビューに描く内容。入力が空ならプレースホルダーを薄く出す(FR-04)
-  const shown: StampDraft = draft.text
-    ? draft
-    : { ...draft, text: PLACEHOLDER, textColor: `${palette.muted}80` }
+  // プレビューに描く内容。入力が空ならプレースホルダーを薄く出す(FR-04)。
+  // StampCanvas の effect 依存に渡すので、毎レンダーで新しいオブジェクトにしない
+  const shown = useMemo<StampDraft>(
+    () => (draft.text ? draft : { ...draft, text: PLACEHOLDER, textColor: `${palette.muted}80` }),
+    [draft, palette.muted],
+  )
 
   const contrast = contrastRatio(draft.textColor, draft.background ?? palette.bg)
   const lowContrast = contrast < MIN_CONTRAST
@@ -189,5 +195,15 @@ export function Studio() {
         </section>
       </div>
     </div>
+  )
+}
+
+function sameFit(a: FitResult, b: FitResult): boolean {
+  return (
+    a.fontSize === b.fontSize &&
+    a.fits === b.fits &&
+    a.lineHeight === b.lineHeight &&
+    a.lines.length === b.lines.length &&
+    a.lines.every((line, i) => line === b.lines[i])
   )
 }
