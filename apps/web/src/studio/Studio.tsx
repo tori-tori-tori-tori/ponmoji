@@ -101,18 +101,20 @@ export function Studio() {
         </section>
 
         <section className="studio-controls">
-          <label className="studio-field">
-            <span>テキスト</span>
+          <div className="studio-field">
+            <label htmlFor="studio-text">テキスト</label>
             <textarea
+              id="studio-text"
+              aria-describedby="studio-text-limit"
               value={draft.text}
               rows={MAX_LINES}
               placeholder={PLACEHOLDER}
               onChange={(e) => update({ text: clampText(e.target.value) })}
             />
-            <small>
+            <small id="studio-text-limit">
               1 行 {MAX_CHARS_PER_LINE} 文字 × {MAX_LINES} 行まで
             </small>
-          </label>
+          </div>
 
           <fieldset className="studio-field">
             <legend>フォント</legend>

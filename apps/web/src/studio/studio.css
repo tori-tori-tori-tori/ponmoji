@@ -132,7 +132,7 @@
   margin: 0;
 }
 
-.studio-field > span,
+.studio-field > label,
 .studio-field > legend {
   font-size: 0.85rem;
   color: var(--muted);

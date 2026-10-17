@@ -66,11 +66,13 @@ CI では許可されたコマンドの接頭辞（`gh pr view` など）だけ�
 | ファイルパス | 対象 | 読み込む条件 |
 |------------|------|------------|
 | `./guidelines/common.md` | 全 PR 共通の横断観点と、このリポジトリ固有の 🚨 Must 基準・誤検知しやすい前提 | **必ず** |
+| `./guidelines/testing.md` | テスト戦略（層の定義と配分、何をどの層に置くか、モック・クエリ・安定性・作法のルール）。ルールごとに ID（`TE-xx`）・判定・OK / NG 例を定義 | テストファイル（`*.test.*`、`*.spec.*`、`e2e/`）やテスト設定の変更、または `apps/` / `packages/` 配下の `.ts` / `.tsx` の追加・変更があるとき |
 | `./guidelines/monorepo.md` | モノレポ構成（ディレクトリ、依存管理、パッケージ境界、設定の置き場所、タスクのキャッシュ、CI の権限）。ルールごとに ID・判定・OK / NG 例を定義 | `package.json`・`pnpm-workspace.yaml`・`pnpm-lock.yaml`・`vite.config.ts`・`tsconfig*.json`・`.github/workflows/` の変更、`apps/` / `packages/` 配下のディレクトリ追加・移動、`@ponmoji/*` または `../` でパッケージを越える import のいずれかが差分にあるとき |
 
 **読み込み判断の指針:**
 - `common.md` は例外なく必ず読み込む
-- `monorepo.md` を使って指摘するときは、コメントにルール ID（`MR-xx`）を書く。例外の扱いは同ファイルの §9 に従う
+- `monorepo.md` / `testing.md` を使って指摘するときは、コメントにルール ID（`MR-xx` / `TE-xx`）を書く。例外の扱いは各ファイルの「例外の扱い」に従う
+- `testing.md` の「導入状況」が未導入の層について、テストが無いことを指摘しない
 - それ以外は、変更ファイルの内容・パス・拡張子を総合的に見て、
   この PR のレビューに実際に役立つガイドラインのみを選択すること
 - 迷った場合は読み込む方向で判断してよい
@@ -389,7 +391,7 @@ jobs:
       issues: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # git log / blame / 前回 commit との diff を使えるように履歴ごと取得
 
@@ -414,7 +416,7 @@ jobs:
 
       # Claude の実行ログ（ツール呼び出し・権限拒否・最終出力）を artifact に残す。失敗の切り分け用
       - if: always() && steps.claude.outputs.execution_file != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: claude-execution-log-pr${{ github.event.pull_request.number }}
           path: ${{ steps.claude.outputs.execution_file }}
