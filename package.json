@@ -6,7 +6,8 @@
     "build": "vp run -r build",
     "check": "vp check",
     "fix": "vp check --fix",
-    "test": "vp run -r test"
+    "test": "vp run -r test",
+    "prepare": "vp hooks enable"
   },
   "devDependencies": {
     "typescript": "catalog:",

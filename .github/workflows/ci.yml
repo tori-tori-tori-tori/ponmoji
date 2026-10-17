@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  VP_GIT_HOOKS: '0' # CI では git hooks(prepare の vp hooks enable)を入れない
+
 jobs:
   check:
     name: Static analysis

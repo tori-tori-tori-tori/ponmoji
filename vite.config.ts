@@ -4,6 +4,11 @@ export default defineConfig({
   // `vp dev` / `vp build` をルートから実行したときの対象
   defaultPackage: './apps/web',
 
+  // pre-commit(.vite-hooks/pre-commit → vp staged)で、ステージ済みファイルを整形・lint する
+  staged: {
+    '*': 'vp check --fix',
+  },
+
   // Oxfmt
   fmt: {
     semi: false,
