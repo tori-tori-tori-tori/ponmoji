@@ -1,6 +1,6 @@
 ---
 name: codereview-on-ci
-description: PR の差分を 🚨 Must / 💭 Nit に分けてレビューする。CI（GitHub Actions）では gh api で review を投稿し、Must が残っていれば Request changes、0 件なら Approve。--local では投稿せず結果を出力し、git の pre-push から push を止める判定に使う。
+description: PR の差分を 🚨 Must / 💭 Nit に分けてレビューする。CI（GitHub Actions）では gh api で review を投稿し、Must が残っていれば Request changes、0 件なら Approve。--local では投稿せず結果を出力する（PR を出す前の手動確認用）。
 argument-hint: "PR_NUMBER=<n> REPO=<owner/repo> BASE_BRANCH=<branch> HEAD_SHA=<sha> | --local BASE_BRANCH=<branch>"
 ---
 # Code Review Skill（CI 実行用）
@@ -24,10 +24,11 @@ GitHub Actions 上で PR の変更内容を分析し、関連するレビュー�
 | モード | 起動元 | 引数 | 出力 |
 | --- | --- | --- | --- |
 | **CI** | GitHub Actions の claude-code-action | `PR_NUMBER=… REPO=… BASE_BRANCH=… HEAD_SHA=…` | PR に review を投稿（`REQUEST_CHANGES` / `APPROVE`） |
-| **ローカル** | git の `pre-push`（`.vite-hooks/pre-push`）から `claude -p` | `--local BASE_BRANCH=…` | 投稿しない。結果を標準出力に書き、`.codereview-on-ci/local-verdict.json` に判定を書く |
+| **ローカル** | 開発者が手動で `/codereview-on-ci --local` または `claude -p` | `--local BASE_BRANCH=…` | 投稿しない。結果を出力し、`.codereview-on-ci/local-verdict.json` に判定を書く |
 
 `$ARGUMENTS` に `--local` があればローカルモード。**レビューの中身（手順 4〜8）は両モードで同じ。** 違いは入力（PR 情報の有無）と出力（投稿か出力か）だけ。
 ローカルモード固有の手順は「ローカルモードでの差分」の節にまとめてある。該当する手順ではその節を優先する。
+開発中の Claude が書くときに守る基準は `.claude/rules/` にあり、このスキルのガイドラインと同じルール ID を使う。
 
 ---
 
@@ -361,7 +362,7 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 
 **前提の違い**
 
-- 起動元は git の `pre-push` フック。**対話はできない**のは CI と同じ。質問せず完走する
+- 開発者が PR を出す前に手動で実行する。対話セッションから呼ばれた場合も、質問せず完走して結果を出す
 - `gh` は使わない（PR がまだ無い）。使えるのは `git diff` / `git log` / `git blame` / `git grep` / `git show` / `git rev-parse` と Read / Grep / Glob / Write
 - 「シェルコマンドの書き方」は CI と同じ。変数・複合コマンド・パイプを使わない
 - 引数は `--local BASE_BRANCH=<ブランチ>`。無ければ `main`
@@ -381,19 +382,19 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 **出力**
 
 1. `git rev-parse HEAD` で HEAD の SHA を取る
-2. Write ツールで `.codereview-on-ci/local-verdict.json` を書く。pre-push フックがこのファイルで push を止めるか決める
+2. Write ツールで `.codereview-on-ci/local-verdict.json` を書く（スクリプトから判定を読めるようにするため）
 
    ```json
    { "must": 1, "nit": 2, "head": "<HEAD の SHA>" }
    ```
 
-   `must` は 🚨 Must の件数、`nit` は 💭 Nit の件数。指摘が無ければ両方 0。**このファイルを書かずに終わらない**（フックは判定ファイルが無いと push を止める）
+   `must` は 🚨 Must の件数、`nit` は 💭 Nit の件数。指摘が無ければ両方 0。**このファイルを書かずに終わらない**
 3. 最後のメッセージに、次の形で結果を書く。これが端末にそのまま表示される
 
    ```
    ## [AI] コードレビュー（ローカル）
 
-   **判定**: 🚨 Must <n> 件 / 💭 Nit <m> 件 → <push を止めます | push できます>
+   **判定**: 🚨 Must <n> 件 / 💭 Nit <m> 件 → <PR を出す前に Must を直してください | PR を出せます>
 
    ### 🚨 Must
    - `path:line` <題>
@@ -434,18 +435,19 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 
 ---
 
-## ローカル実行の設定（参考）
+## ローカル実行（参考）
 
-`.vite-hooks/pre-push` が `vp check` → `vp run -r test` → このスキル（`--local`）の順に走らせ、Must があれば push を止める。
+静的解析とテストは `.vite-hooks/pre-commit`（`vp staged` → `vp check` → `vp run -r test`）が commit 前に走らせる。
 フックは `pnpm install` の `prepare`（`vp hooks enable`）で有効になる。
 
+AI レビューを PR を出す前に手元で試したいときは、対話セッションで `/codereview-on-ci --local BASE_BRANCH=main` を呼ぶか、次を実行する。
+
 ```sh
-git push --no-verify                  # すべて飛ばす（CI は必ず走る）
-PONMOJI_SKIP_AI_REVIEW=1 git push     # AI レビューだけ飛ばす
-PONMOJI_REVIEW_BASE=develop git push  # ベースブランチを変える
+claude -p "/codereview-on-ci --local BASE_BRANCH=main" --output-format text --max-turns 60 \
+  --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*),Bash(git rev-parse:*)"
 ```
 
-手動で試す: `sh .vite-hooks/pre-push < /dev/null`
+2〜5 分かかる。判定は `.codereview-on-ci/local-verdict.json` に残る。
 
 ## ワークフロー設定（参考）
 

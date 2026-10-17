@@ -1,3 +1,20 @@
 #!/usr/bin/env sh
-# ステージ済みファイルの整形と lint(vite.config.ts の staged ブロック)
+# commit 前の検査。CI の Static analysis / Test ジョブと同じ内容を手元で先に通す。
+#   1. vp staged       ステージ済みファイルを整形・lint(vite.config.ts の staged ブロック: vp check --fix)
+#   2. vp check        format + 型情報つき lint + 型チェック(プロジェクト全体)
+#   3. vp run -r test  Unit / Integration(Integration は Chromium が必要。未導入なら
+#                      `pnpm --filter @ponmoji/web exec playwright install chromium`)
+#
+# 飛ばし方: git commit --no-verify(CI は必ず走る)、VP_GIT_HOOKS=0 git commit
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "▶ pre-commit 1/3: vp staged"
 vp staged
+
+echo "▶ pre-commit 2/3: vp check"
+vp check
+
+echo "▶ pre-commit 3/3: vp run -r test"
+vp run -r test
