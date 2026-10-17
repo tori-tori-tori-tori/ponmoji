@@ -20,6 +20,24 @@ LAST="$STATE_DIR/last-reviewed-sha"
 # push 先が無い・ベースが取れない場合は検査せず通す(CI に任せる)
 git rev-parse --verify -q "$BASE_REF" >/dev/null || { echo "pre-push: $BASE_REF が無いので検査を飛ばします"; exit 0; }
 
+# stdin には push される ref が 1 行ずつ来る: <local ref> <local sha> <remote ref> <remote sha>
+# 削除だけ(local sha が全部 0)や、HEAD 以外のブランチだけを push するときは検査しない。
+# 手動実行(stdin が空)のときは HEAD を push するものとして扱う
+HEAD_SHA="$(git rev-parse HEAD)"
+ZERO="0000000000000000000000000000000000000000"
+PUSHES_HEAD=0
+HAS_LINE=0
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [ -n "$local_sha" ] || continue
+  HAS_LINE=1
+  [ "$local_sha" = "$ZERO" ] && continue
+  [ "$local_sha" = "$HEAD_SHA" ] && PUSHES_HEAD=1
+done
+if [ "$HAS_LINE" = 1 ] && [ "$PUSHES_HEAD" = 0 ]; then
+  echo "pre-push: HEAD 以外の ref の push(削除やタグ)なので検査を飛ばします"
+  exit 0
+fi
+
 if git diff --quiet "$BASE_REF...HEAD"; then
   echo "pre-push: $BASE_BRANCH との差分が無いので検査を飛ばします"
   exit 0
@@ -36,13 +54,13 @@ if [ "${PONMOJI_SKIP_AI_REVIEW:-0}" = "1" ]; then
   exit 0
 fi
 
-# レビュー対象になるファイルが無ければ飛ばす
-if ! git diff --name-only "$BASE_REF...HEAD" | grep -Eq '\.(ts|tsx|js|mjs|cjs|json|ya?ml|css|sh)$|^\.claude/|^\.github/|^\.vite-hooks/'; then
-  echo "pre-push 3/3: コードの差分が無いので AI レビューを飛ばします"
+# 文書と画像だけの差分なら飛ばす(.claude/ 配下の md はレビュー基準そのものなので対象に含める)
+if ! git diff --name-only "$BASE_REF...HEAD" | grep -Ev '^(docs/|README)|\.(md|mdx|txt|png|jpe?g|gif|webp|svg|ico)$' | grep -q . \
+   && ! git diff --name-only "$BASE_REF...HEAD" | grep -q '^\.claude/'; then
+  echo "pre-push 3/3: 文書・画像だけの差分なので AI レビューを飛ばします"
   exit 0
 fi
 
-HEAD_SHA="$(git rev-parse HEAD)"
 if [ -f "$LAST" ] && [ "$(cat "$LAST")" = "$HEAD_SHA" ]; then
   echo "pre-push 3/3: $HEAD_SHA は Must 0 件でレビュー済みのため飛ばします"
   exit 0
@@ -53,7 +71,7 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "▶ pre-push 3/3: AI コードレビュー($BASE_BRANCH...HEAD)。30〜60 秒ほどかかります"
+echo "▶ pre-push 3/3: AI コードレビュー($BASE_BRANCH...HEAD)。数分かかります(実測 2〜5 分)"
 mkdir -p "$STATE_DIR"
 rm -f "$VERDICT"
 
@@ -69,8 +87,20 @@ if [ ! -f "$VERDICT" ]; then
   exit 1
 fi
 
-MUST="$(node -e 'const v=require(process.argv[1]); process.stdout.write(String(v.must ?? 0))' "$PWD/$VERDICT")"
-NIT="$(node -e 'const v=require(process.argv[1]); process.stdout.write(String(v.nit ?? 0))' "$PWD/$VERDICT")"
+# 判定ファイルを検証する。壊れている・HEAD と一致しない場合は安全側(push を止める)
+PARSED="$(node -e '
+  const v = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  if (!Number.isInteger(v.must) || !Number.isInteger(v.nit) || typeof v.head !== "string") throw new Error("形式が不正");
+  process.stdout.write(`${v.must} ${v.nit} ${v.head}`);
+' "$PWD/$VERDICT" 2>/dev/null)" || { echo "pre-push: 判定ファイル($VERDICT)を読めませんでした。--no-verify で回避できます"; exit 1; }
+MUST="${PARSED%% *}"
+REST="${PARSED#* }"
+NIT="${REST%% *}"
+VERDICT_HEAD="${REST#* }"
+if [ "$VERDICT_HEAD" != "$HEAD_SHA" ]; then
+  echo "pre-push: 判定ファイルの head($VERDICT_HEAD)が HEAD($HEAD_SHA)と一致しません。--no-verify で回避できます"
+  exit 1
+fi
 
 if [ "$MUST" -gt 0 ]; then
   echo ""
