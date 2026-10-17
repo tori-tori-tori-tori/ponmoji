@@ -42,7 +42,16 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Integration テスト(Vitest Browser Mode)用の Chromium
+      # Integration テスト(Vitest Browser Mode)用の Chromium。
+      # ブラウザ本体は Playwright のバージョンをキーにキャッシュし、ヒット時はダウンロードを飛ばす。
+      # OS 側の依存(apt)は安全のためキャッシュの有無に関わらず毎回入れる(--with-deps)。
+      - name: Get Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @ponmoji/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: pnpm --filter @ponmoji/web exec playwright install --with-deps chromium
       - run: pnpm exec vp run -r test
 
