@@ -1,0 +1,8 @@
+# ローカルのツールチェーン(CI は .github/workflows/ci.yml の setup-node / pnpm/action-setup が同じファイルを読む)
+[settings]
+# Node のバージョンの正本は .node-version(CI の setup-node と共有)
+idiomatic_version_file_enable_tools = ["node"]
+
+[tools]
+# 正確なバージョンは package.json の packageManager に書く。pnpm 10 以降は呼ばれた版が違えば自動でその版に切り替わる
+pnpm = "11"

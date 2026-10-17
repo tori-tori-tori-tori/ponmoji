@@ -13,6 +13,7 @@ Slack / Discord / Teams 向けスタンプ（カスタム絵文字）をパッ�
 | `pnpm build` | 全パッケージのビルド                                      |
 | `pnpm dev`   | `apps/web` の dev サーバー（3000 番）                     |
 
+Node は `.node-version`、pnpm は `package.json` の `packageManager` が正本。ローカルは mise(`mise install`)でその版に揃える。
 commit 前に `.vite-hooks/pre-commit` が `vp staged` → `vp check` → `vp run -r test` を走らせる。
 PR には CI（Static analysis / Test / Build）と AI コードレビュー（`codereview-on-ci` スキル）が付く。
 
