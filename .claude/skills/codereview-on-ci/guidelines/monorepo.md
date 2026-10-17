@@ -52,7 +52,7 @@
 | MR-32 | パッケージ間の依存は util ← ui ← feature の一方向。逆向きは禁止 | 🚨 Must |
 | MR-33 | パッケージ間の循環依存の禁止 | 🚨 Must |
 | MR-34 | 内部パッケージは特定アプリの環境変数・ルーティング・デプロイ先を前提にしない | 🚨 Must |
-| MR-40 | ルートに置くのは、ツールチェーンのバージョン、catalog、`fmt` / `lint`、`tsconfig.base.json`、`defaultPackage`、`run.tasks` だけ | 🚨 Must |
+| MR-40 | ルートに置くのは、ツールチェーンのバージョン、catalog、`fmt` / `lint` / `staged`、`tsconfig.base.json`、`defaultPackage`、`run.tasks`、git hooks(`.vite-hooks/`)だけ | 🚨 Must |
 | MR-41 | フレームワークのプラグイン、`server`、`resolve`、`build`、デプロイアダプタ、`test` ブロックは各アプリの `vite.config.ts` に置く | 🚨 Must |
 | MR-42 | `lint` / `fmt` の設定はルートにだけ置く。アプリ固有の差は `lint.overrides` / `fmt.overrides` の `files` で表す | 🚨 Must |
 | MR-43 | 各パッケージの `tsconfig.json` は共通設定を `extends` する。厳しさ(`strict` 等)を個別に緩めない | 🚨 Must |
@@ -360,7 +360,7 @@ export function fontUrl(baseUrl: string, name: string) { ... }
 | --- | --- |
 | `.node-version`、`packageManager`、`engines` | 自分の依存一覧(`catalog:` / `workspace:` で参照) |
 | `pnpm-workspace.yaml`(catalog、overrides) | `vite.config.ts` のプラグイン、`server`、`resolve`、`build`、デプロイアダプタ、`test` |
-| ルート `vite.config.ts` の `fmt` / `lint` / `defaultPackage` / `run.tasks` | `tsconfig.json`(`extends` + `paths` / `types` / `include`) |
+| ルート `vite.config.ts` の `fmt` / `lint` / `staged` / `defaultPackage` / `run.tasks` | `tsconfig.json`(`extends` + `paths` / `types` / `include`) |
 | `tsconfig.base.json` | 環境変数、ルート定義、アプリのコード |
 | `.gitignore`、CI、git hooks | |
 

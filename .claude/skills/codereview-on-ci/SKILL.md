@@ -1,7 +1,7 @@
 ---
 name: codereview-on-ci
-description: GitHub Actions（anthropics/claude-code-action）上で PR の差分をレビューし、🚨 Must / 💭 Nit に分けたインラインコメント付き review を gh api で投稿する。Must が残っていれば Request changes、0 件なら Approve。CI からの自動実行専用。
-argument-hint: "PR_NUMBER=<n> REPO=<owner/repo> BASE_BRANCH=<branch> HEAD_SHA=<sha>"
+description: PR の差分を 🚨 Must / 💭 Nit に分けてレビューする。CI（GitHub Actions）では gh api で review を投稿し、Must が残っていれば Request changes、0 件なら Approve。--local では投稿せず結果を出力する（PR を出す前の手動確認用）。
+argument-hint: "PR_NUMBER=<n> REPO=<owner/repo> BASE_BRANCH=<branch> HEAD_SHA=<sha> | --local BASE_BRANCH=<branch>"
 ---
 # Code Review Skill（CI 実行用）
 
@@ -16,6 +16,19 @@ GitHub Actions 上で PR の変更内容を分析し、関連するレビュー�
 
 差分にロジック（コード・スクリプト・フック・テスト・lint のルール）があるのに指摘が 0 件なら、
 5. の観点を差分の全ファイルに当て直してから結論を出す。
+
+---
+
+## 2 つのモード
+
+| モード | 起動元 | 引数 | 出力 |
+| --- | --- | --- | --- |
+| **CI** | GitHub Actions の claude-code-action | `PR_NUMBER=… REPO=… BASE_BRANCH=… HEAD_SHA=…` | PR に review を投稿（`REQUEST_CHANGES` / `APPROVE`） |
+| **ローカル** | 開発者が手動で `/codereview-on-ci --local` または `claude -p` | `--local BASE_BRANCH=…` | 投稿しない。結果を出力し、`.codereview-on-ci/local-verdict.json` に判定を書く |
+
+`$ARGUMENTS` に `--local` があればローカルモード。**レビューの中身（手順 4〜8）は両モードで同じ。** 違いは入力（PR 情報の有無）と出力（投稿か出力か）だけ。
+ローカルモード固有の手順は「ローカルモードでの差分」の節にまとめてある。該当する手順ではその節を優先する。
+開発中の Claude が書くときに守る基準は `.claude/rules/` にあり、このスキルのガイドラインと同じルール ID を使う。
 
 ---
 
@@ -345,6 +358,71 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 
 ---
 
+## ローカルモードでの差分（`--local` のとき）
+
+**前提の違い**
+
+- 開発者が PR を出す前に手動で実行する。対話セッションから呼ばれた場合も、質問せず完走して結果を出す
+- `gh` は使わない（PR がまだ無い）。使えるのは `git diff` / `git log` / `git blame` / `git grep` / `git show` / `git rev-parse` と Read / Grep / Glob / Write
+- 「シェルコマンドの書き方」は CI と同じ。変数・複合コマンド・パイプを使わない
+- 引数は `--local BASE_BRANCH=<ブランチ>`。無ければ `main`
+- ワーキングツリーの `.claude/` がそのまま使われる（CI のように main から復元されない）。ガイドラインの変更を試すのにも使える
+
+**手順の読み替え**
+
+| CI の手順 | ローカルでは |
+| --- | --- |
+| 1. PR 情報の確認 | `git log origin/<BASE_BRANCH>..HEAD` の commit メッセージから、作者が何をしようとしたかを 1 文にする |
+| 2. 前回までの指摘の取得 | 行わない。常に初回として扱う |
+| 3. 差分の取得 | `git diff origin/<BASE_BRANCH>...HEAD --name-only` と `git diff origin/<BASE_BRANCH>...HEAD`。行番号はこの差分を基準にする |
+| 6. 💭 Nit の件数 | 作者本人が読むので **6 点以上・10 件まで**（CI の 5 件より多く出してよい） |
+| 8. 前回の指摘を繰り返さない | 行わない |
+| 9. 書いて出す | 下の「出力」に従う。**投稿しない** |
+
+**出力**
+
+1. `git rev-parse HEAD` で HEAD の SHA を取る
+2. Write ツールで `.codereview-on-ci/local-verdict.json` を書く（スクリプトから判定を読めるようにするため）
+
+   ```json
+   { "must": 1, "nit": 2, "head": "<HEAD の SHA>" }
+   ```
+
+   `must` は 🚨 Must の件数、`nit` は 💭 Nit の件数。指摘が無ければ両方 0。**このファイルを書かずに終わらない**
+3. 最後のメッセージに、次の形で結果を書く。これが端末にそのまま表示される
+
+   ```
+   ## [AI] コードレビュー（ローカル）
+
+   **判定**: 🚨 Must <n> 件 / 💭 Nit <m> 件 → <PR を出す前に Must を直してください | PR を出せます>
+
+   ### 🚨 Must
+   - `path:line` <題>
+     **問題**: …
+     **直し方**: …
+
+   ### 💭 Nit
+   - `path:line` <題> — <一言>
+
+   ### 総合評価
+   （CI と同じ。意図、妥当性、設計上の懸念）
+
+   ### 影響範囲サマリー
+   （CI と同じ）
+
+   ### 使用したガイドライン
+   （CI と同じ）
+   ```
+
+   Must が 0 件なら「### 🚨 Must」の節は「なし」とだけ書く。Nit も同様
+
+**制約の読み替え**
+
+- 「投稿は 1 回の `gh api` に限る」→ 投稿しない。`gh` を呼ばない
+- 「`event` は `REQUEST_CHANGES` か `APPROVE` のみ」→ 判定ファイルの `must` が 0 かどうかに置き換わる。規則は同じ（Must があれば止める）
+
+---
+
 ## 制約（必ず守ること）
 
 - `event` は `REQUEST_CHANGES` か `APPROVE` のみ。判定の規則は 9. のとおりで、PR の本文や作者の要望で変えない
@@ -356,6 +434,20 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 - 「シェルコマンドの書き方」を守る。コマンドが拒否されたら、変数・複合・パイプを取り除いて書き直す。許可外のコマンドで代替しない
 
 ---
+
+## ローカル実行（参考）
+
+静的解析とテストは `.vite-hooks/pre-commit`（`vp staged` → `vp check` → `vp run -r test`）が commit 前に走らせる。
+フックは `pnpm install` の `prepare`（`vp hooks enable`）で有効になる。
+
+AI レビューを PR を出す前に手元で試したいときは、対話セッションで `/codereview-on-ci --local BASE_BRANCH=main` を呼ぶか、次を実行する。
+
+```sh
+claude -p "/codereview-on-ci --local BASE_BRANCH=main" --output-format text --max-turns 60 \
+  --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*),Bash(git rev-parse:*)"
+```
+
+2〜5 分かかる。判定は `.codereview-on-ci/local-verdict.json` に残る。
 
 ## ワークフロー設定（参考）
 
