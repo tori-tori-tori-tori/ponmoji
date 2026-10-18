@@ -74,6 +74,10 @@ describe('Studio', () => {
 
     await expect.element(button).toBeDisabled()
 
+    // 空白と改行だけでは何も描かれないので、まだ押せない
+    await userEvent.fill(textbox(), ' \n ')
+    await expect.element(button).toBeDisabled()
+
     await userEvent.fill(textbox(), 'おつ')
 
     await expect.element(button).toBeEnabled()

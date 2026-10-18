@@ -49,6 +49,8 @@ export function stampFileName(text: string): string {
   return `${slug || 'stamp'}.png`
 }
 
+const REVOKE_DELAY_MS = 1000
+
 /** Blob をブラウザにダウンロードさせる */
 export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob)
@@ -56,5 +58,6 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   a.href = url
   a.download = fileName
   a.click()
-  URL.revokeObjectURL(url)
+  // click() の直後に失効させると、取得開始が遅いブラウザ(Safari など)でファイルが空になる
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS)
 }

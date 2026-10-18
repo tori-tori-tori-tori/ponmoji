@@ -105,7 +105,7 @@ export function Studio() {
             <button
               type="button"
               className="studio-download"
-              disabled={!draft.text || exporting}
+              disabled={!draft.text.trim() || exporting}
               onClick={() => void download()}
             >
               PNG をダウンロード（{STAMP_SIZE}×{STAMP_SIZE}）
