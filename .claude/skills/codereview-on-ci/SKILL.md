@@ -65,7 +65,7 @@ CI では許可されたコマンドの接頭辞（`gh pr view` など）だけ�
 - GraphQL のクエリにも `$owner` のような変数を使わず、値を直接書く
 - 出力の絞り込みは `gh` の `--jq` / `--json` で行い、`jq`・`head`・`grep` へのパイプは使わない
 - カレントディレクトリはリポジトリのルート。`cd` せずに相対パスで扱う
-- 使えるのは `gh pr view` / `gh pr diff` / `gh api` / `git diff` / `git log` / `git blame` / `git grep` / `git show` と、Read / Grep / Glob / Write。
+- 使えるのは `gh pr view` / `gh pr diff` / `gh api` / `git diff` / `git log` / `git blame` / `git grep` / `git show` と、Read / Grep / Glob / Write / Edit。
   それ以外（`gh pr list`・`env`・`ls`・`cat` など）は使わない
 
 ---
@@ -301,7 +301,7 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 
 **投稿（2 サイクル完了後に 1 回でまとめて行う。途中で個別に投稿しない）:**
 
-1. Write ツールでリポジトリ直下に `.codereview-on-ci/review.json` を作成する（commit はしない）。
+1. Write ツールでリポジトリ直下に `.codereview-on-ci/review.json` を作成する（commit はしない）。書いた後に直すときは Edit か Write を使う。
 
    ```json
    {
@@ -363,7 +363,7 @@ gh api repos/<REPO>/compare/<前回の commit_id>...<HEAD_SHA> --jq '.files[] | 
 **前提の違い**
 
 - 開発者が PR を出す前に手動で実行する。対話セッションから呼ばれた場合も、質問せず完走して結果を出す
-- `gh` は使わない（PR がまだ無い）。使えるのは `git diff` / `git log` / `git blame` / `git grep` / `git show` / `git rev-parse` と Read / Grep / Glob / Write
+- `gh` は使わない（PR がまだ無い）。使えるのは `git diff` / `git log` / `git blame` / `git grep` / `git show` / `git rev-parse` と Read / Grep / Glob / Write / Edit
 - 「シェルコマンドの書き方」は CI と同じ。変数・複合コマンド・パイプを使わない
 - 引数は `--local BASE_BRANCH=<ブランチ>`。無ければ `main`
 - ワーキングツリーの `.claude/` がそのまま使われる（CI のように main から復元されない）。ガイドラインの変更を試すのにも使える
@@ -444,7 +444,7 @@ AI レビューを PR を出す前に手元で試したいときは、対話セ�
 
 ```sh
 claude -p "/codereview-on-ci --local BASE_BRANCH=main" --output-format text --max-turns 60 \
-  --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*),Bash(git rev-parse:*)"
+  --allowedTools "Read,Grep,Glob,Write,Edit,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*),Bash(git rev-parse:*)"
 ```
 
 2〜5 分かかる。判定は `.codereview-on-ci/local-verdict.json` に残る。
@@ -503,7 +503,7 @@ jobs:
             BASE_BRANCH=${{ github.event.pull_request.base.ref }}
             HEAD_SHA=${{ github.event.pull_request.head.sha }}
           claude_args: |
-            --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
+            --allowedTools "Read,Grep,Glob,Write,Edit,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
             --max-turns 60
 
       # Claude の実行ログ（ツール呼び出し・権限拒否・最終出力）を artifact に残す。失敗の切り分け用

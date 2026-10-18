@@ -41,7 +41,7 @@ jobs:
             BASE_BRANCH=${{ github.event.pull_request.base.ref }}
             HEAD_SHA=${{ github.event.pull_request.head.sha }}
           claude_args: |
-            --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
+            --allowedTools "Read,Grep,Glob,Write,Edit,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(git grep:*),Bash(git show:*)"
             --max-turns 60
 
       # Claude の実行ログ（ツール呼び出し・権限拒否・最終出力）を artifact に残す。失敗の切り分け用
