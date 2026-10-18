@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { StampDraft } from './draft'
-import { fitText, lineCenters, STAMP_SIZE, type FitResult } from './fit'
+import { type FitResult, STAMP_SIZE } from './fit'
 import { findFont } from './fonts'
+import { fontCss, renderStamp } from './render'
 
 type Props = {
   draft: StampDraft
@@ -33,41 +34,24 @@ export function StampCanvas({ draft, displaySize, underlay, onFit, className }: 
       ctx.setTransform(scale, 0, 0, scale, 0, 0)
       ctx.clearRect(0, 0, STAMP_SIZE, STAMP_SIZE)
 
-      if (draft.background) {
-        ctx.fillStyle = draft.background
-        ctx.fillRect(0, 0, STAMP_SIZE, STAMP_SIZE)
-      } else if (underlay) {
-        ctx.fillStyle = underlay
-        ctx.fillRect(0, 0, STAMP_SIZE, STAMP_SIZE)
-      } else {
-        drawChecker(ctx)
+      // 透明背景の下地はプレビューだけの演出。書き出しには含めない
+      if (!draft.background) {
+        if (underlay) {
+          ctx.fillStyle = underlay
+          ctx.fillRect(0, 0, STAMP_SIZE, STAMP_SIZE)
+        } else {
+          drawChecker(ctx)
+        }
       }
 
-      const fontOf = (size: number) => `700 ${size}px "${font.family}", sans-serif`
-      const result = fitText({
-        text: draft.text,
-        measure: (text, size) => {
-          ctx.font = fontOf(size)
-          return ctx.measureText(text).width
-        },
-      })
-      onFit?.(result)
-
-      ctx.font = fontOf(result.fontSize)
-      ctx.fillStyle = draft.textColor
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      const centers = lineCenters(result)
-      result.lines.forEach((line, i) => {
-        ctx.fillText(line, STAMP_SIZE / 2, centers[i] ?? STAMP_SIZE / 2)
-      })
+      onFit?.(renderStamp(ctx, draft))
     }
 
     draw()
-    // フォント読み込み前はフォールバック書体で描かれるので、読み込み後に描き直す(FR-25)
+    // フォント読み込み前はフォールバック書体で描かれるので、読み込み後に描き直す
     let cancelled = false
     document.fonts
-      .load(`700 32px "${font.family}"`)
+      .load(fontCss(font.family, 32))
       .then(() => {
         if (!cancelled) draw()
       })

@@ -68,6 +68,21 @@ describe('Studio', () => {
       .toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('テキストが空のあいだはダウンロードできず、入力すると押せるようになる', async () => {
+    await render(<Studio />)
+    const button = page.getByRole('button', { name: /PNG をダウンロード/ })
+
+    await expect.element(button).toBeDisabled()
+
+    // 空白と改行だけでは何も描かれないので、まだ押せない
+    await userEvent.fill(textbox(), ' \n ')
+    await expect.element(button).toBeDisabled()
+
+    await userEvent.fill(textbox(), 'おつ')
+
+    await expect.element(button).toBeEnabled()
+  })
+
   it('背景とのコントラストが低い文字色を選ぶと注意が出る', async () => {
     await render(<Studio />)
 
