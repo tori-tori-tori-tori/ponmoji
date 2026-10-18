@@ -2,7 +2,7 @@ import { defineConfig } from 'vite-plus'
 
 export default defineConfig({
   // `vp dev` / `vp build` をルートから実行したときの対象
-  defaultPackage: './apps/web',
+  defaultPackage: './apps/studio-web',
 
   // pre-commit(.vite-hooks/pre-commit → vp staged)で、ステージ済みファイルを整形・lint する
   staged: {

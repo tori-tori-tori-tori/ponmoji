@@ -75,7 +75,7 @@
 
 ```
 OK
-apps/web/            # TanStack Start アプリ
+apps/studio-web/     # TanStack Start アプリ(Studio)
 apps/worker/         # 画像生成の Worker
 packages/theme/      # テーマ変数
 packages/stamp/      # 描画ロジック
@@ -107,7 +107,7 @@ packages:
 
 ```json
 // OK
-{ "name": "@ponmoji/web" }
+{ "name": "@ponmoji/studio-web" }
 { "name": "@ponmoji/theme" }
 
 // NG
