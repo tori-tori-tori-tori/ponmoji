@@ -15,7 +15,7 @@ paths:
 | --- | --- | --- | --- |
 | Unit | Vitest（node） | ロジックを持つ関数・モジュール | 対象と同じディレクトリに `<名前>.test.ts` |
 | Integration | Vitest Browser Mode（Chromium）+ `vitest-browser-react` | 画面・コンポーネントをユーザー操作で | 対象と同じディレクトリに `<名前>.test.tsx` |
-| E2E / 視覚回帰 | Playwright（未導入） | 本番ビルドの導線、スタンプの見た目 | `apps/web/e2e/` |
+| E2E / 視覚回帰 | Playwright（未導入） | 本番ビルドの導線、スタンプの見た目 | `apps/studio-web/e2e/` |
 
 キャンバスの中身は DOM に出ない。ロジックは純粋関数に切り出して Unit で検証し、画面のテストは表示文字と aria 状態で判定する。
 

@@ -1,7 +1,8 @@
 # ponmoji
 
 Slack / Discord / Teams 向けスタンプ（カスタム絵文字）をパック単位で配布するサービス。
-`apps/web` が TanStack Start のアプリで、`/studio` がテキストからスタンプを作る画面。
+`apps/studio-web` が TanStack Start のアプリ(Studio)で、`/` がテキストからスタンプを作る画面。
+配布サイトは別アプリとして後から `apps/` に追加する。
 
 ## コマンド（ルートで実行）
 
@@ -11,7 +12,7 @@ Slack / Discord / Teams 向けスタンプ（カスタム絵文字）をパッ�
 | `pnpm fix`   | 上の自動修正                                              |
 | `pnpm test`  | Unit（node）と Integration（Chromium）のテスト            |
 | `pnpm build` | 全パッケージのビルド                                      |
-| `pnpm dev`   | `apps/web` の dev サーバー（3000 番）                     |
+| `pnpm dev`   | `apps/studio-web` の dev サーバー（3000 番）              |
 
 Node は `.node-version`、pnpm は `package.json` の `packageManager` が正本。ローカルは mise(`mise install`)でその版に揃える。
 commit 前に `.vite-hooks/pre-commit` が `vp staged` → `vp check` → `vp run -r test` を走らせる。

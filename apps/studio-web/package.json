@@ -1,5 +1,5 @@
 {
-  "name": "@ponmoji/web",
+  "name": "@ponmoji/studio-web",
   "private": true,
   "type": "module",
   "scripts": {

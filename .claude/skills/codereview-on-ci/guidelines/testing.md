@@ -61,11 +61,11 @@ ponmoji 固有の判断:
 ### 置き場所と命名
 
 ```
-apps/web/src/studio/fit.ts
-apps/web/src/studio/fit.test.ts          # Unit: 対象と同じディレクトリ、同じ名前 + .test
-apps/web/src/studio/Studio.test.tsx      # Integration: 対象コンポーネントと同じディレクトリ
-apps/web/e2e/smoke.spec.ts               # E2E: アプリ直下の e2e/
-apps/web/e2e/studio.spec.ts
+apps/studio-web/src/studio/fit.ts
+apps/studio-web/src/studio/fit.test.ts          # Unit: 対象と同じディレクトリ、同じ名前 + .test
+apps/studio-web/src/studio/Studio.test.tsx      # Integration: 対象コンポーネントと同じディレクトリ
+apps/studio-web/e2e/smoke.spec.ts               # E2E: アプリ直下の e2e/
+apps/studio-web/e2e/studio.spec.ts
 ```
 
 - テスト名は **「何を・どの条件で・どうなるか」** の 3 要素を日本語で書く(例: `長い 1 行は全体が縮んで収まる`)
