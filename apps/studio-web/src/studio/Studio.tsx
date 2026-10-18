@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { contrastRatio, MIN_CONTRAST } from './color'
 import { clampText, initialDraft, MAX_CHARS_PER_LINE, MAX_LINES, type StampDraft } from './draft'
-import { type FitResult, MIN_FONT_SIZE } from './fit'
+import { downloadBlob, renderStampPng, stampFileName } from './export'
+import { type FitResult, MIN_FONT_SIZE, STAMP_SIZE } from './fit'
 import { STUDIO_FONTS } from './fonts'
 import { StampCanvas } from './StampCanvas'
 import { type Appearance, type Service, SERVICE_THEMES, SERVICES, textColorPresets } from './themes'
@@ -14,6 +15,8 @@ export function Studio() {
   const [service, setService] = useState<Service>('slack')
   const [appearance, setAppearance] = useState<Appearance>('light')
   const [fit, setFit] = useState<FitResult | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const theme = SERVICE_THEMES[service]
   const palette = theme[appearance]
@@ -33,6 +36,18 @@ export function Studio() {
 
   const contrast = contrastRatio(draft.textColor, draft.background ?? palette.bg)
   const lowContrast = contrast < MIN_CONTRAST
+
+  const download = async () => {
+    setExporting(true)
+    setExportError(null)
+    try {
+      downloadBlob(await renderStampPng(draft), stampFileName(draft.text))
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div
@@ -85,6 +100,22 @@ export function Studio() {
                 ? `${fit.fontSize}px / ${fit.lines.length} 行`
                 : ''}
           </p>
+
+          <div className="studio-export">
+            <button
+              type="button"
+              className="studio-download"
+              disabled={!draft.text || exporting}
+              onClick={() => void download()}
+            >
+              PNG をダウンロード（{STAMP_SIZE}×{STAMP_SIZE}）
+            </button>
+            {exportError && (
+              <small className="studio-warn" role="alert">
+                書き出しに失敗しました: {exportError}
+              </small>
+            )}
+          </div>
 
           <div className="studio-chat" aria-label={`${theme.label} での実寸`}>
             <span className="studio-avatar" aria-hidden="true" />
